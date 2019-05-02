@@ -1,0 +1,33 @@
+menu "WiFi LED Panel"
+
+config MQTT_URL
+    string "MQTT URL"
+    default "mqtt://iot.eclipse.org"
+    help
+        MQTT Url to connect to.
+
+config MQTT_CLIENT_ID
+    string "MQTT Client ID"
+    default "led-1"
+    help
+        MQTT ClientID to use.
+
+config MQTT_PREFIX
+    string "MQTT topic prefix"
+    default "led"
+    help
+        MQTT Topic prefix.
+
+config SPI_SPEED_HZ
+    int "Clock speed"
+    default 1000000
+    help
+        Clock speed for led strip.
+
+config LEDS_COUNT
+    int "Leds count"
+    default 1
+    help
+        Number of leds in the strip.
+
+endmenu
