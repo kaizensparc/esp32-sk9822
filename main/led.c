@@ -5,7 +5,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "apa102.h"
 #include "mqtt.h"
 
 static void animate_4() {

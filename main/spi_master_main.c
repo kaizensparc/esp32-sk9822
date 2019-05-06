@@ -14,6 +14,7 @@
 #include "led.h"
 #include "mqtt.h"
 #include "ota.h"
+#include "queues.h"
 #include "wifi.h"
 
 // GPIO Definition
@@ -50,6 +51,9 @@ void app_main() {
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
+
+    // Initialize static queues
+    queues_init();
 
     wifi_init();
     ESP_LOGI("WIFI", "Waiting for wifi");
