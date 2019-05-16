@@ -12,7 +12,7 @@
 #include "esp_partition.h"
 
 // Other
-#include "mqtt.h"
+#include "queues.h"
 
 #define HASH_LEN 32
 #define BUFFSIZE 1024
@@ -45,11 +45,17 @@ static void ota_upgrade_task(void *pvParameter) {
     const esp_partition_t *update_partition = NULL;
 
     // Wait for an OTA upgrade request to come.
-    while (xEventGroupWaitBits(mqtt_event_group, MQTT_OTA_BIT, false, true,
-                               portMAX_DELAY)) {
-        // TODO XXX Changeme
+    while (true) {
+        static char ota_url[QUEUE_SIZE_OTA + 1] = {0};
+        ota_url[QUEUE_SIZE_OTA] = '\0';
+        if (xQueueReceive(dispatcher_queues[QUEUE_OTA], (void *)&ota_url,
+                          portMAX_DELAY) != pdTRUE) {
+            ESP_LOGI("OTA", "Queue is not available, ignoring message");
+            continue;
+        }
+
         esp_http_client_config_t config = {
-            //.url = mqtt_string,
+            .url = ota_url,
         };
         esp_http_client_handle_t client = esp_http_client_init(&config);
         if (client == NULL) {

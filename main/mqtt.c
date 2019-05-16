@@ -1,5 +1,7 @@
 #include "mqtt.h"
 
+#include <ctype.h>
+#include <math.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "mqtt_client.h"
@@ -52,47 +54,98 @@ static void mqtt_parse_payload(esp_mqtt_event_handle_t event) {
 
     if (memcmp(event->topic, TOPIC_OTA, event->topic_len) == 0) {
         ESP_LOGI(TAG, "OTA update!");
-        if (xQueueSend(dispatcher_queues[QUEUE_OTA], (void*)&event->data,
+        char* payload = pvPortMalloc(sizeof(char) * QUEUE_SIZE_OTA);
+        if (payload == NULL) {
+            ESP_LOGE(TAG, "Could not allocate memory to get MQTT payload");
+            return;
+        }
+        memcpy(payload, event->data, sizeof(char) * event->data_len);
+        payload[event->data_len] = '\0';
+        if (xQueueSend(dispatcher_queues[QUEUE_OTA], (void*)payload,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
         }
+        vPortFree(payload);
     } else if (memcmp(event->topic, TOPIC_ANIM, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Animation call");
-        uint8_t payload;
-        if (event->data_len >= 3) {
-            ESP_LOGI(TAG, "Message is too long for an uint8");
-            return;
+
+        // Sanity check and conversion
+        uint8_t payload = 0;
+        for (int i = 0; i < event->data_len; i++) {
+            if (!isdigit((unsigned char)event->data[i])) {
+                ESP_LOGI(TAG, "Wrong payload, expected an integer");
+                return;
+            }
+            // uint overflow will just reset it if needed
+            payload += (event->data[i] - '0') * pow10(i);
         }
-        // XXX To continue
-        // Sanity check, payload should be a single uint8_t
-        if (xQueueSend(dispatcher_queues[QUEUE_ANIM], (void*)&event->data,
+
+        if (xQueueSend(dispatcher_queues[QUEUE_ANIM], (void*)&payload,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
         }
     } else if (memcmp(event->topic, TOPIC_BRIG, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Global brightness change");
-        // Sanity check, payload should be a single uint8_t
-        if (xQueueSend(dispatcher_queues[QUEUE_BRIG], (void*)&event->data,
+        // Sanity check and conversion
+        uint8_t payload = 0;
+        for (int i = 0; i < event->data_len; i++) {
+            if (!isdigit((unsigned char)event->data[i])) {
+                ESP_LOGI(TAG, "Wrong payload, expected an integer");
+                return;
+            }
+            // uint overflow will just reset it if needed
+            payload += (event->data[i] - '0') * pow10(i);
+        }
+        if (payload > 100) payload = 100;
+
+        if (xQueueSend(dispatcher_queues[QUEUE_BRIG], (void*)&payload,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
         }
     } else if (memcmp(event->topic, TOPIC_COLO, event->topic_len) == 0) {
         ESP_LOGI(TAG, "GLobal color change");
         // Sanity check, payload should be a string like RRGGBB
+        if (event->topic_len != 6) return;
+        for (int i = 0; i < event->data_len; i++) {
+            if (!isxdigit((unsigned char)event->data[i])) {
+                ESP_LOGI(TAG, "Wrong payload, expected an integer");
+                return;
+            }
+        }
+
         if (xQueueSend(dispatcher_queues[QUEUE_COLO], (void*)&event->data,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
         }
     } else if (memcmp(event->topic, TOPIC_LED_BRIG, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Led-specific brightness change");
-        // Sanity check, payload should be a single uint8_t
-        if (xQueueSend(dispatcher_queues[QUEUE_LED_BRIG], (void*)&event->data,
+        // Sanity check and conversion
+        uint8_t payload = 0;
+        for (int i = 0; i < event->data_len; i++) {
+            if (!isdigit((unsigned char)event->data[i])) {
+                ESP_LOGI(TAG, "Wrong payload, expected an integer");
+                return;
+            }
+            // uint overflow will just reset it if needed
+            payload += (event->data[i] - '0') * pow10(i);
+        }
+        if (payload > 100) payload = 100;
+
+        if (xQueueSend(dispatcher_queues[QUEUE_LED_BRIG], (void*)&payload,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
         }
     } else if (memcmp(event->topic, TOPIC_LED_COLO, event->topic_len) == 0) {
         ESP_LOGI(TAG, "Led-specific color change");
         // Sanity check, payload should be a string like RRGGBB
+        if (event->topic_len != 6) return;
+        for (int i = 0; i < event->data_len; i++) {
+            if (!isxdigit((unsigned char)event->data[i])) {
+                ESP_LOGI(TAG, "Wrong payload, expected an integer");
+                return;
+            }
+        }
+
         if (xQueueSend(dispatcher_queues[QUEUE_LED_COLO], (void*)&event->data,
                        500 / portTICK_PERIOD_MS) != pdTRUE) {
             ESP_LOGI(TAG, "Queue is not available, ignoring message");
@@ -107,8 +160,7 @@ static int mqtt_vprintf(const char* fmt, va_list ap) {
     // Get the formatted string
     char buf[256];
     int bufsz = vsprintf(buf, fmt, ap);
-    esp_mqtt_client_publish(client, CONFIG_MQTT_PREFIX "logs", buf, bufsz, 1,
-                            0);
+    esp_mqtt_client_publish(client, TOPIC_LOGS, buf, bufsz, 1, 0);
     return bufsz;
 }
 
@@ -117,6 +169,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_BEFORE_CONNECT:
             ESP_LOGI(TAG, "Event before connecting");
+            break;
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "Connected");
 

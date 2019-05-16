@@ -12,10 +12,10 @@ static StaticQueue_t queues_struct[QUEUE_INDEX_LENGTH];
                            uc_storage_area_##name, &queues_struct[queue_idx])
 
 void queues_init(void) {
-    create_static_queue(QUEUE_OTA, ota, 1024);
-    create_static_queue(QUEUE_ANIM, anim, 1);
-    create_static_queue(QUEUE_BRIG, brig, 1);
-    create_static_queue(QUEUE_COLO, colo, 6);
-    create_static_queue(QUEUE_LED_BRIG, led_brig, 1);
-    create_static_queue(QUEUE_LED_COLO, led_colo, 6);
+    create_static_queue(QUEUE_OTA, ota, QUEUE_SIZE_OTA);
+    create_static_queue(QUEUE_ANIM, anim, QUEUE_SIZE_ANIM);
+    create_static_queue(QUEUE_BRIG, brig, QUEUE_SIZE_BRIG);
+    create_static_queue(QUEUE_COLO, colo, QUEUE_SIZE_COLO);
+    create_static_queue(QUEUE_LED_BRIG, led_brig, QUEUE_SIZE_LED_BRIG);
+    create_static_queue(QUEUE_LED_COLO, led_colo, QUEUE_SIZE_LED_COLO);
 }
