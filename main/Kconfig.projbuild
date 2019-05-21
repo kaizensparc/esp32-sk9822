@@ -1,5 +1,17 @@
 menu "WiFi LED Panel"
 
+config DEFAULT_WIFI_ESSID
+    string "Default WiFi ESSID"
+    default "myssid"
+    help
+        WiFi SSID to connect to by default.
+
+config DEFAULT_WIFI_PASSWD
+    string "Default WiFi Password"
+    default "mypass"
+    help
+        WiFi Password to use by default.
+
 config MQTT_URL
     string "MQTT URL"
     default "mqtt://iot.eclipse.org"

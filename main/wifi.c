@@ -75,8 +75,10 @@ void smartconfig_task(void *pvParameter) {
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event) {
     switch (event->event_id) {
         case SYSTEM_EVENT_STA_START:
-            xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3,
-                        NULL);
+            esp_wifi_connect();
+            // XXX Uncomment to reenable smartconfig
+            // xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3,
+            //            NULL);
             xEventGroupSetBits(wifi_event_group, WIFI_STARTED_BIT);
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
@@ -98,6 +100,15 @@ void wifi_init(void) {
     ESP_ERROR_CHECK(esp_event_loop_init(wifi_event_handler, NULL));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    wifi_config_t wifi_config = {
+        .sta =
+            {
+                .ssid = CONFIG_DEFAULT_WIFI_ESSID,
+                .password = CONFIG_DEFAULT_WIFI_PASSWD,
+            },
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
